@@ -1,0 +1,291 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WicketNova Cricket</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #101827;
+      color: white;
+      text-align: center;
+      padding: 15px;
+      margin: 0;
+    }
+
+    .app {
+      max-width: 450px;
+      margin: auto;
+    }
+
+    .card {
+      background: #1e293b;
+      padding: 18px;
+      border-radius: 15px;
+      margin: 15px 0;
+    }
+
+    h1 { color: #38e08b; }
+
+    .score {
+      font-size: 38px;
+      font-weight: bold;
+    }
+
+    button {
+      padding: 14px;
+      margin: 5px;
+      border: none;
+      border-radius: 9px;
+      background: #38e08b;
+      color: #102018;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .wicket {
+      background: #ff5252;
+      color: white;
+    }
+
+    .secondary {
+      background: #334155;
+      color: white;
+    }
+
+    input, select {
+      padding: 12px;
+      margin: 5px;
+      width: 85%;
+      border-radius: 8px;
+      border: none;
+      box-sizing: border-box;
+    }
+
+    #message { color: #facc15; }
+  </style>
+</head>
+
+<body>
+<div class="app">
+  <h1>🏏 WicketNova</h1>
+  <p>Cricket Scoring App</p>
+
+  <div class="card">
+    <input id="team" placeholder="Team का नाम" value="Team A">
+    <input id="batter" placeholder="Striker का नाम" value="Batsman">
+    <input id="bowler" placeholder="Bowler का नाम" value="Bowler">
+
+    <label for="overs">कुल ओवर:</label>
+    <select id="overs">
+      <option value="1">1 Over</option>
+      <option value="5">5 Overs</option>
+      <option value="10">10 Overs</option>
+      <option value="20" selected>20 Overs</option>
+      <option value="50">50 Overs</option>
+      <option value="999">Unlimited Overs</option>
+    </select>
+    <button onclick="startMatch()">Start Match</button>
+  </div>
+
+  <div class="card">
+    <h2 id="teamName">Team A</h2>
+    <div class="score"><span id="runs">0</span>/<span id="wickets">0</span></div>
+    <p>Overs: <span id="overDisplay">0.0</span></p>
+    <p id="message">मैच शुरू करें</p>
+  </div>
+
+  <div class="card">
+    <h3>रन जोड़ें</h3>
+    <button onclick="addRuns(0)">0</button>
+    <button onclick="addRuns(1)">1</button>
+    <button onclick="addRuns(2)">2</button>
+    <button onclick="addRuns(3)">3</button>
+    <button onclick="addRuns(4)">4</button>
+    <button onclick="addRuns(6)">6</button>
+    <button class="secondary" onclick="extraRun()">Wide</button>
+    <button class="secondary" onclick="noBall()">No Ball</button>
+    <button class="wicket" onclick="showWicket()">Wicket</button>
+    <button class="secondary" onclick="undo()">Undo</button>
+  </div>
+
+  <div class="card" id="wicketPanel" hidden>
+    <h3>Wicket की जानकारी</h3>
+    <select id="dismissal">
+      <option value="Bowled">Bowled</option>
+      <option value="Caught">Caught</option>
+      <option value="LBW">LBW</option>
+      <option value="Run Out">Run Out</option>
+      <option value="Stumped">Stumped</option>
+      <option value="Hit Wicket">Hit Wicket</option>
+      <option value="Caught and Bowled">Caught and Bowled</option>
+      <option value="Obstructing the Field">Obstructing the Field</option>
+      <option value="Hit the Ball Twice">Hit the Ball Twice</option>
+      <option value="Retired Out">Retired Out</option>
+    </select>
+    <input id="outBatter" placeholder="Out होने वाले बल्लेबाज का नाम" value="Batsman">
+    <input id="fielder" placeholder="Fielder का नाम (यदि लागू हो)">
+    <button class="wicket" onclick="confirmWicket()">Confirm Wicket</button>
+    <button class="secondary" onclick="hideWicket()">Cancel</button>
+  </div>
+
+  <div class="card">
+    <h3>Scorecard</h3>
+    <p id="battingSummary">अभी कोई रन नहीं</p>
+    <h3>Wicket Details</h3>
+    <ul id="wicketList" style="text-align:left"></ul>
+  </div>
+</div>
+
+<script>
+  let runs = 0;
+  let wickets = 0;
+  let balls = 0;
+  let maxOvers = 20;
+  let started = false;
+  let history = [];
+  let wicketDetails = [];
+
+  function saveState() {
+    history.push({
+      runs, wickets, balls,
+      wicketDetails: [...wicketDetails]
+    });
+  }
+
+  function render() {
+    document.getElementById("runs").textContent = runs;
+    document.getElementById("wickets").textContent = wickets;
+    document.getElementById("overDisplay").textContent =
+      Math.floor(balls / 6) + "." + (balls % 6);
+
+    document.getElementById("battingSummary").textContent =
+      `${runs} रन, ${wickets} विकेट, ${Math.floor(balls/6)}.${balls%6} ओवर`;
+
+    document.getElementById("wicketList").innerHTML = "";
+    wicketDetails.forEach(w => {
+      const li = document.createElement("li");
+      li.textContent = `${w.batter} — ${w.type}` +
+        (w.fielder ? ` (${w.fielder})` : "") +
+        ` — ${w.score}/${w.wickets} (${w.over} ओवर)`;
+      document.getElementById("wicketList").appendChild(li);
+    });
+  }
+
+  function startMatch() {
+    runs = 0;
+    wickets = 0;
+    balls = 0;
+    history = [];
+    wicketDetails = [];
+    maxOvers = Number(document.getElementById("overs").value);
+    started = true;
+    document.getElementById("teamName").textContent =
+      document.getElementById("team").value || "Team A";
+    document.getElementById("message").textContent = "मैच शुरू हो गया!";
+    document.getElementById("wicketPanel").hidden = true;
+    render();
+  }
+
+  function canPlay() {
+    if (!started) {
+      document.getElementById("message").textContent =
+        "पहले Start Match दबाएं";
+      return false;
+    }
+    if (wickets >= 10 ||
+        (maxOvers !== 999 && balls >= maxOvers * 6)) {
+      document.getElementById("message").textContent =
+        "पारी समाप्त हो गई";
+      return false;
+    }
+    return true;
+  }
+
+  function addRuns(n) {
+    if (!canPlay()) return;
+    saveState();
+    runs += n;
+    balls++;
+    document.getElementById("message").textContent = `${n} रन जोड़े गए`;
+    render();
+  }
+
+  function extraRun() {
+    if (!canPlay()) return;
+    saveState();
+    runs++;
+    document.getElementById("message").textContent = "Wide: 1 रन";
+    render();
+  }
+
+  function noBall() {
+    if (!canPlay()) return;
+    saveState();
+    runs++;
+    document.getElementById("message").textContent = "No Ball: 1 रन";
+    render();
+  }
+
+  function showWicket() {
+    if (!canPlay()) return;
+    document.getElementById("outBatter").value =
+      document.getElementById("batter").value || "Batsman";
+    document.getElementById("wicketPanel").hidden = false;
+  }
+
+  function hideWicket() {
+    document.getElementById("wicketPanel").hidden = true;
+  }
+
+  function confirmWicket() {
+    if (!canPlay()) return;
+
+    const type = document.getElementById("dismissal").value;
+    const batterName = document.getElementById("outBatter").value || "Batsman";
+    const fielderName = document.getElementById("fielder").value.trim();
+
+    saveState();
+    wickets++;
+    balls++;
+
+    wicketDetails.push({
+      type,
+      batter: batterName,
+      fielder: fielderName,
+      score: runs,
+      wickets,
+      over: Math.floor(balls / 6) + "." + (balls % 6)
+    });
+
+    document.getElementById("message").textContent =
+      `${batterName} OUT — ${type}`;
+    hideWicket();
+    render();
+  }
+
+  function undo() {
+    if (!history.length) {
+      document.getElementById("message").textContent =
+        "Undo करने के लिए रिकॉर्ड नहीं है";
+      return;
+    }
+
+    const previous = history.pop();
+    runs = previous.runs;
+    wickets = previous.wickets;
+    balls = previous.balls;
+    wicketDetails = previous.wicketDetails;
+    document.getElementById("message").textContent =
+      "पिछला स्कोर वापस किया गया";
+    render();
+  }
+
+  render();
+</script>
+</body>
+</html>
