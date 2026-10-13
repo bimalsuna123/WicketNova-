@@ -1,177 +1,40 @@
 
-<!DOCTYPE html>
-<html lang="hi">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WicketNova</title>
-<style>
-*{box-sizing:border-box}
-body{margin:0;background:#0b1220;color:white;font-family:Arial,sans-serif;text-align:center}
-header{padding:20px;background:#132238;color:#41f39a;font-size:27px;font-weight:bold}
-main{max-width:480px;margin:auto;padding:15px}
-.card{background:#172438;padding:18px;border-radius:16px;margin:14px 0}
-input,select{width:100%;padding:12px;margin:6px 0;border:0;border-radius:8px;font-size:16px}
-button{padding:13px 16px;margin:5px;border:0;border-radius:9px;background:#41f39a;color:#07150e;font-size:16px;font-weight:bold}
-.red{background:#ff5252;color:white}
-.gray{background:#34445d;color:white}
-.score{font-size:42px;font-weight:bold}
-.small{color:#b8c6d9}
-footer{padding:22px;color:#41f39a;font-weight:bold}
-</style>
-</head>
-<body>
-<header>🏏 WicketNova</header>
-<main>
-<div class="card">
-<h3>नया मैच</h3>
-<input id="team" placeholder="Team का नाम" value="Team A">
-<input id="batter" placeholder="Striker का नाम" value="Batsman">
-<input id="bowler" placeholder="Bowler का नाम" value="Bowler">
-<select id="limit">
-<option value="5">5 Overs</option>
-<option value="10">10 Overs</option>
-<option value="20" selected>20 Overs</option>
-<option value="50">50 Overs</option>
-<option value="999">Unlimited Overs</option>
-</select>
-<button onclick="start()">Start Match</button>
-</div>
+name: Build WicketNova Android Debug APK
 
-<div class="card">
-<h3 id="teamName">Team A</h3>
-<div class="score"><span id="runs">0</span>/<span id="wk">0</span></div>
-<p>Overs: <span id="overs">0.0</span></p>
-<p class="small">Striker: <span id="striker">Batsman</span></p>
-<p class="small">Bowler: <span id="bowlerName">Bowler</span></p>
-<p id="msg">मैच शुरू करें</p>
-</div>
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
 
-<div class="card">
-<h3>रन जोड़ें</h3>
-<button onclick="run(0)">0</button>
-<button onclick="run(1)">1</button>
-<button onclick="run(2)">2</button>
-<button onclick="run(3)">3</button>
-<button onclick="run(4)">4</button>
-<button onclick="run(6)">6</button>
-<br>
-<button class="gray" onclick="extra('Wide')">Wide +1</button>
-<button class="gray" onclick="extra('No Ball')">No Ball +1</button>
-<button class="red" onclick="openWicket()">Wicket</button>
-<button class="gray" onclick="undo()">Undo</button>
-</div>
+permissions:
+  contents: read
 
-<div class="card" id="wicketBox" hidden>
-<h3>Wicket Details</h3>
-<select id="kind">
-<option>Bowled</option>
-<option>Caught</option>
-<option>LBW</option>
-<option>Run Out</option>
-<option>Stumped</option>
-<option>Hit Wicket</option>
-<option>Caught and Bowled</option>
-<option>Retired Out</option>
-<option>Obstructing the Field</option>
-<option>Hit the Ball Twice</option>
-</select>
-<input id="outName" placeholder="Out Batter का नाम">
-<input id="fielder" placeholder="Fielder का नाम (यदि लागू हो)">
-<button class="red" onclick="confirmWicket()">Confirm Wicket</button>
-<button class="gray" onclick="closeWicket()">Cancel</button>
-</div>
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-<div class="card">
-<h3>Scorecard</h3>
-<p id="summary">0 रन · 0 विकेट · 0.0 ओवर</p>
-<h3>Wicket Details</h3>
-<div id="details"></div>
-</div>
-</main>
-<footer>Made with ❤️ WicketNova</footer>
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-<script>
-let r=0,w=0,b=0,max=20,started=false;
-let log=[],dismissals=[];
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-function save(){
- log.push({r,w,b,dismissals:[...dismissals]});
-}
-function render(){
- document.getElementById("runs").textContent=r;
- document.getElementById("wk").textContent=w;
- document.getElementById("overs").textContent=Math.floor(b/6)+"."+(b%6);
- document.getElementById("summary").textContent=
- r+" रन · "+w+" विकेट · "+Math.floor(b/6)+"."+(b%6)+" ओवर";
- document.getElementById("details").innerHTML="";
- dismissals.forEach(d=>{
-  let p=document.createElement("p");
-  p.textContent=d.name+" — "+d.kind+
-   (d.fielder?" ("+d.fielder+")":"")+" · "+d.score+"/"+d.wickets;
-  document.getElementById("details").appendChild(p);
- });
-}
-function start(){
- r=0;w=0;b=0;log=[];dismissals=[];
- max=Number(document.getElementById("limit").value);
- started=true;
- document.getElementById("teamName").textContent=
- document.getElementById("team").value||"Team A";
- document.getElementById("striker").textContent=
- document.getElementById("batter").value||"Batsman";
- document.getElementById("bowlerName").textContent=
- document.getElementById("bowler").value||"Bowler";
- document.getElementById("msg").textContent="मैच शुरू हो गया!";
- closeWicket();render();
-}
-function allowed(){
- if(!started){document.getElementById("msg").textContent="पहले Start Match दबाएं";return false}
- if(w>=10||(max!==999&&b>=max*6)){
-  document.getElementById("msg").textContent="पारी समाप्त";return false
- }
- return true;
-}
-function run(n){
- if(!allowed())return;
- save();r+=n;b++;
- document.getElementById("msg").textContent=n+" रन जोड़े गए";
- render();
-}
-function extra(type){
- if(!allowed())return;
- save();r++;
- document.getElementById("msg").textContent=type+" : 1 रन";
- render();
-}
-function openWicket(){
- if(!allowed())return;
- document.getElementById("outName").value=
- document.getElementById("striker").textContent;
- document.getElementById("wicketBox").hidden=false;
-}
-function closeWicket(){document.getElementById("wicketBox").hidden=true}
-function confirmWicket(){
- if(!allowed())return;
- save();
- w++;b++;
- dismissals.push({
-  name:document.getElementById("outName").value||"Batsman",
-  kind:document.getElementById("kind").value,
-  fielder:document.getElementById("fielder").value.trim(),
-  score:r,wickets:w
- });
- document.getElementById("msg").textContent="Wicket! "+dismissals[dismissals.length-1].name+" OUT";
- closeWicket();render();
-}
-function undo(){
- if(!log.length){document.getElementById("msg").textContent="Undo रिकॉर्ड नहीं है";return}
- let s=log.pop();
- r=s.r;w=s.w;b=s.b;dismissals=s.dismissals;
- document.getElementById("msg").textContent="पिछला स्कोर वापस हुआ";
- render();
-}
-render();
-</script>
-</body>
-</html>
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: WicketNova-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
