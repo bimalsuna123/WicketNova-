@@ -1,5 +1,5 @@
 
-name: Build WicketNova Android Debug APK
+name: Build WicketNova APK
 
 on:
   workflow_dispatch:
@@ -18,23 +18,50 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Prepare website files
+        run: |
+          mkdir -p www
+          if [ -f index.html ]; then
+            cp index.html www/index.html
+          elif [ -f www/index.html ]; then
+            echo "Website found in www/"
+          else
+            echo "ERROR: index.html not found"
+            exit 1
+          fi
+
+      - name: Create Capacitor Android project
+        run: |
+          npm init -y
+          npm install @capacitor/core@7 @capacitor/android@7
+          npm install --save-dev @capacitor/cli@7
+
+          npx cap init WicketNova com.bimalsuna.wicketnova \
+            --web-dir www
+
+          npx cap add android
+          npx cap sync android
 
       - name: Build Debug APK
         run: |
+          cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload Debug APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: WicketNova-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: WicketNova-Android-APK
+          path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
